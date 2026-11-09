@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme" parent="android:Theme.Material.Light.DarkActionBar">
+        <item name="android:colorPrimary">#2F5DBA</item>
+        <item name="android:colorPrimaryDark">#1F3F85</item>
+        <item name="android:colorAccent">#2F5DBA</item>
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+
+    <style name="Label">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">8dp</item>
+        <item name="android:textColor">#555555</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+</resources>
