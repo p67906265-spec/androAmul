@@ -30,6 +30,7 @@ public class EcClient {
     static final int OP_SEARCH_STOP = 0x27;
     static final int OP_SEARCH_RESULTS = 0x28;
     static final int OP_SEARCH_PROGRESS = 0x29;
+    static final int OP_DOWNLOAD_SEARCH_RESULT = 0x2A;
     static final int OP_AUTH_SALT = 0x4F;
     static final int OP_AUTH_PASSWD = 0x50;
 
@@ -41,6 +42,8 @@ public class EcClient {
     static final int TAG_CLIENT_NAME = 0x0100;
     static final int TAG_CLIENT_VERSION = 0x0101;
     static final int TAG_SERVER_VERSION = 0x050B;
+    static final int TAG_PARTFILE = 0x0300;
+    static final int TAG_PARTFILE_CAT = 0x030F;
     static final int TAG_PARTFILE_NAME = 0x0301;
     static final int TAG_PARTFILE_SIZE_FULL = 0x0303;
     static final int TAG_PARTFILE_SOURCE_COUNT = 0x030A;
@@ -212,6 +215,23 @@ public class EcClient {
         Packet p = readPacket();
         Tag t = p.tag(TAG_SEARCH_STATUS);
         return t == null ? 0 : t.asLong();
+    }
+
+    /** Avvia il download di un risultato dell'ultima ricerca (categoria 0). */
+    public void download(String hexHash) throws IOException {
+        byte[] h = new byte[16];
+        for (int i = 0; i < 16; i++) {
+            h[i] = (byte) Integer.parseInt(hexHash.substring(i * 2, i * 2 + 2), 16);
+        }
+        List<byte[]> children = new ArrayList<>();
+        children.add(tagInt(TAG_PARTFILE_CAT, T_UINT8, 0, 1));
+        List<byte[]> top = new ArrayList<>();
+        top.add(tagWithChildren(TAG_PARTFILE, T_HASH16, h, children));
+        sendPacket(OP_DOWNLOAD_SEARCH_RESULT, top);
+        Packet reply = readPacket();
+        if (reply.opcode == OP_FAILED) {
+            throw new IOException(firstString(reply));
+        }
     }
 
     public List<Result> results() throws IOException {

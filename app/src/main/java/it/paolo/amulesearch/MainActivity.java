@@ -17,6 +17,8 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.BaseAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.Toast;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ListView;
@@ -184,9 +186,20 @@ public class MainActivity extends Activity {
         pass.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         pass.setText(p.getString("pass", ""));
 
+        final CheckBox show = new CheckBox(this);
+        show.setText("Mostra password");
+        show.setOnCheckedChangeListener((b, checked) -> {
+            int sel = pass.getSelectionEnd();
+            pass.setInputType(InputType.TYPE_CLASS_TEXT | (checked
+                    ? InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                    : InputType.TYPE_TEXT_VARIATION_PASSWORD));
+            if (sel >= 0) pass.setSelection(sel);
+        });
+
         box.addView(host);
         box.addView(port);
         box.addView(pass);
+        box.addView(show);
 
         new AlertDialog.Builder(this)
                 .setTitle("Connessione ad aMule")
@@ -365,6 +378,33 @@ public class MainActivity extends Activity {
         });
     }
 
+    private void startDownload(final EcClient.Result r) {
+        SharedPreferences p = prefs();
+        final String host = cleanHost(p.getString("host", ""));
+        final int port = p.getInt("port", 4712);
+        final String pass = p.getString("pass", "");
+        if (r.hash.length() != 32) {
+            Toast.makeText(this, "Hash non disponibile", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Toast.makeText(this, "Avvio download...", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            EcClient ec = new EcClient();
+            String msg;
+            try {
+                ec.connect(host, port, pass);
+                ec.download(r.hash);
+                msg = "Download avviato: " + r.name;
+            } catch (Exception e) {
+                msg = "Errore download: " + (e.getMessage() == null ? e.toString() : e.getMessage());
+            } finally {
+                ec.close();
+            }
+            final String m = msg;
+            runOnUiThread(() -> Toast.makeText(MainActivity.this, m, Toast.LENGTH_LONG).show());
+        }).start();
+    }
+
     // ---------------------------------------------------------------- lista
 
     private static String humanSize(long b) {
@@ -376,7 +416,7 @@ public class MainActivity extends Activity {
             v /= 1024;
             i++;
         }
-        return String.format(Locale.ITALY, "%.1f %s", v, u[i]);
+        return String.format(Locale.ITALY, "%.2f %s", v, u[i]);
     }
 
     private class ResultAdapter extends BaseAdapter {
@@ -400,10 +440,12 @@ public class MainActivity extends Activity {
             if (convert == null) {
                 convert = LayoutInflater.from(MainActivity.this).inflate(R.layout.row_result, parent, false);
             }
-            EcClient.Result r = results.get(i);
+            final EcClient.Result r = results.get(i);
             ((TextView) convert.findViewById(R.id.tvName)).setText(r.name);
-            ((TextView) convert.findViewById(R.id.tvInfo)).setText(
-                    humanSize(r.size) + "  •  fonti: " + r.sources + " (complete: " + r.complete + ")");
+            ((TextView) convert.findViewById(R.id.tvSize)).setText(humanSize(r.size));
+            ((TextView) convert.findViewById(R.id.tvSources)).setText("Fonti: " + r.sources + " (" + r.complete + ")");
+            Button bd = convert.findViewById(R.id.btnDownload);
+            bd.setOnClickListener(v -> startDownload(r));
             return convert;
         }
     }
