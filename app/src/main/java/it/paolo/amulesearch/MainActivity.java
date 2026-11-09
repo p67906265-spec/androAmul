@@ -115,6 +115,34 @@ public class MainActivity extends Activity {
 
     // ---------------------------------------------------------------- impostazioni
 
+    /** Toglie http://, percorso e porta: tiene solo l'indirizzo. */
+    static String cleanHost(String in) {
+        String h = in == null ? "" : in.trim();
+        int i = h.indexOf("://");
+        if (i >= 0) h = h.substring(i + 3);
+        int slash = h.indexOf('/');
+        if (slash >= 0) h = h.substring(0, slash);
+        int colon = h.lastIndexOf(':');
+        if (colon >= 0) h = h.substring(0, colon);
+        return h.trim();
+    }
+
+    /** Porta eventualmente scritta nell'indirizzo (es. 192.168.0.111:4712), altrimenti -1. */
+    static int hostPort(String in) {
+        String h = in == null ? "" : in.trim();
+        int i = h.indexOf("://");
+        if (i >= 0) h = h.substring(i + 3);
+        int slash = h.indexOf('/');
+        if (slash >= 0) h = h.substring(0, slash);
+        int colon = h.lastIndexOf(':');
+        if (colon < 0) return -1;
+        try {
+            return Integer.parseInt(h.substring(colon + 1).trim());
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
     private SharedPreferences prefs() {
         return getSharedPreferences(PREFS, MODE_PRIVATE);
     }
@@ -169,8 +197,11 @@ public class MainActivity extends Activity {
                         pt = Integer.parseInt(port.getText().toString().trim());
                     } catch (Exception ignored) {
                     }
+                    String hostClean = cleanHost(host.getText().toString());
+                    int hp = hostPort(host.getText().toString());
+                    if (hp > 0) pt = hp;
                     prefs().edit()
-                            .putString("host", host.getText().toString().trim())
+                            .putString("host", hostClean)
                             .putInt("port", pt)
                             .putString("pass", pass.getText().toString())
                             .apply();
@@ -210,7 +241,7 @@ public class MainActivity extends Activity {
             return;
         }
         SharedPreferences p = prefs();
-        final String host = p.getString("host", "");
+        final String host = cleanHost(p.getString("host", ""));
         final int port = p.getInt("port", 4712);
         final String pass = p.getString("pass", "");
         if (host.isEmpty()) {
@@ -282,7 +313,17 @@ public class MainActivity extends Activity {
             List<EcClient.Result> last = ec.results();
             publish(last, -1);
         } catch (Exception e) {
-            error = e.getMessage() == null ? e.toString() : e.getMessage();
+            if (e instanceof java.net.UnknownHostException) {
+                error = "indirizzo non valido (" + host + "). Usa solo l'IP, es. 192.168.0.111";
+            } else if (e instanceof java.net.ConnectException || e instanceof java.net.SocketTimeoutException
+                    && e.getMessage() != null && e.getMessage().toLowerCase().contains("connect")) {
+                error = "impossibile connettersi a " + host + ":" + port
+                        + ". Controlla che aMule abbia le connessioni esterne attive e la porta EC " + port + " raggiungibile";
+            } else if (e instanceof java.io.EOFException) {
+                error = "connessione chiusa da aMule (porta sbagliata o accesso non consentito)";
+            } else {
+                error = e.getMessage() == null ? e.toString() : e.getMessage();
+            }
         } finally {
             ec.close();
         }
