@@ -279,8 +279,9 @@ public class EcClient {
             }
         }
         body.write(data, 0, data.length);
-        // la lunghezza dichiarata include i figli (compreso il contatore) e i dati
-        int totalLen = childrenLen + data.length;
+        // la lunghezza dichiarata include i dati e i figli serializzati, ma NON il contatore
+        // dei figli del tag stesso (quello e' contato nel padre)
+        int totalLen = childrenLen - (children.isEmpty() ? 0 : 2) + data.length;
 
         ByteArrayOutputStream o = new ByteArrayOutputStream();
         int n = (name << 1) | (children.isEmpty() ? 0 : 1);
@@ -356,7 +357,8 @@ public class EcClient {
             int count = c.u16();
             for (int i = 0; i < count; i++) t.children.add(readTag(c));
         }
-        long dataLen = len - (c.pos - start);
+        // il contatore dei figli (2 byte) non fa parte della lunghezza dichiarata
+        long dataLen = len - (c.pos - start - (hasChildren ? 2 : 0));
         if (dataLen < 0 || dataLen > c.remaining()) throw new IOException("Tag non valido");
         t.data = c.bytes((int) dataLen);
         return t;
